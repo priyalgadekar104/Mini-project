@@ -1,0 +1,2 @@
+The Student Performance Analyzer is a Python-based command-line and interactive application designed to manage, evaluate, analyze, and visualize academic performance records for students. It bridges Python's data processing power with Excel spreadsheets, making it easy to track scores across multiple subjects: Maths, Physics, Chemistry, Python, and Mechanics.
+The program allows the user to manage data, automate grading, analyze the report statistically and visualize data through a bar graph.
