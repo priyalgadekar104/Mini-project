@@ -1,3 +1,5 @@
 LendLocal is a hyperlocal community sharing and rental web application built in Python with Streamlit and pandas, running locally in VS Code. It lets neighbors list items to Rent (paid daily in ₹) or Lend (free), request items for up to 14 days, return them, and track activity across local communities such as Kothrud West, Paud Road, Bavdhan, and Karve Nagar.
+
 lendlocal.py (Backend): Defines the Item and LendLocal dataclasses, enforces rental rules (1–14 day duration, required contact details, due-date/overdue tracking, and daily rate calculations), seeds 23 default listings, and saves/loads state via lendlocal_data.json.
+
 app.py (Streamlit Frontend): Wraps the backend in an interactive web UI with sidebar filters (community, mode, availability), a reset option, and five tabs for Browsing Items, Borrowing/Returning, Listing New Items, viewing Community Insights, and checking the Activity Log.
