@@ -1,0 +1,1960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LendLocal — Neighborhood Peer-to-Peer Sharing & Rentals</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono for timestamps/IDs -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        stone: {
+                            50: '#fafaf9',
+                            100: '#f5f5f4',
+                            200: '#e7e5e4',
+                            800: '#292524',
+                            900: '#1c1917',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom smooth scrollbars & micro-transitions */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d6d3d1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeUp {
+            from { transform: translateY(8px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-toast {
+            animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-card {
+            animation: fadeUp 0.25s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800 font-sans antialiased min-h-screen flex flex-col selection:bg-emerald-100 selection:text-emerald-900">
+
+    <!-- Top Navigation & Community Region Bar -->
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-stone-200/80 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <!-- Brand Identity -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-sm">
+                    <i data-lucide="handshake" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-stone-900">LendLocal</h1>
+                        <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                            Neighborhood Exchange
+                        </span>
+                    </div>
+                    <!-- Interactive Community Region Switcher -->
+                    <div class="flex items-center gap-1.5 text-xs text-stone-500 mt-0.5">
+                        <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-500 shrink-0"></i>
+                        <span id="regionDisplay" class="font-medium text-stone-700">All Community Regions (4)</span>
+                        <span class="text-stone-300">•</span>
+                        <span class="text-stone-500">Pune West Network</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Primary Header Actions -->
+            <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+                <input type="file" id="jsonImportInput" accept=".json,application/json" onchange="handleJsonImport(event)" class="hidden">
+                <button onclick="document.getElementById('jsonImportInput').click()" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-medium text-stone-700 bg-white hover:bg-stone-100 border border-stone-200 transition-all cursor-pointer" title="Load lendlocal_data.json">
+                    <i data-lucide="upload" class="w-3.5 h-3.5 text-stone-500"></i>
+                    <span class="hidden lg:inline">Import JSON</span>
+                </button>
+                <button onclick="exportToJson()" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-medium text-stone-700 bg-white hover:bg-stone-100 border border-stone-200 transition-all cursor-pointer" title="Download lendlocal_data.json">
+                    <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-600"></i>
+                    <span class="hidden lg:inline">Export JSON</span>
+                </button>
+                <button onclick="simulateOverdueItem()" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-all cursor-pointer" title="Simulate an overdue rental to test [OVERDUE] detection">
+                    <i data-lucide="clock-alert" class="w-3.5 h-3.5"></i>
+                    <span class="hidden sm:inline">Test Overdue</span>
+                </button>
+                <button onclick="resetToDemoData()" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-medium text-stone-600 bg-stone-100 hover:bg-stone-200/80 border border-stone-200/80 transition-all cursor-pointer" title="Restore initial Python demo state">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    <span class="hidden md:inline">Reset Demo</span>
+                </button>
+                <button onclick="openAddModal()" class="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-stone-900 hover:bg-stone-800 active:scale-[0.99] shadow-sm transition-all cursor-pointer">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>List Item</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
+
+        <!-- Live Community KPI Summary Cards -->
+        <section aria-label="Community Statistics" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <!-- KPI 1: Total Listed Items -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/80 shadow-xs flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-medium text-stone-500 uppercase tracking-wider">Total Listed</p>
+                    <p id="statTotalItems" class="text-2xl sm:text-3xl font-extrabold text-stone-900 mt-1">0</p>
+                    <p id="statScopeLabel" class="text-xs text-stone-400 mt-1">Across all regions</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center shrink-0">
+                    <i data-lucide="package" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <!-- KPI 2: Available Now -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/80 shadow-xs flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-medium text-emerald-700 uppercase tracking-wider">Available Now</p>
+                    <p id="statAvailableItems" class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">0</p>
+                    <p class="text-xs text-stone-400 mt-1">Ready to rent or borrow</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <!-- KPI 3: Currently Borrowed / Rented -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/80 shadow-xs flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-medium text-amber-700 uppercase tracking-wider">Currently In Use</p>
+                    <p id="statActiveLoans" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">0</p>
+                    <p class="text-xs text-stone-400 mt-1">With neighborhood borrowers</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <!-- KPI 4: Total Rent Earned -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/80 shadow-xs flex items-start justify-between" title="Cumulative rent earned across completed & active rentals">
+                <div>
+                    <p class="text-xs font-medium text-indigo-700 uppercase tracking-wider">Total Rent Earned</p>
+                    <p id="statTotalVolume" class="text-2xl sm:text-3xl font-extrabold text-indigo-600 mt-1">₹0</p>
+                    <p id="statTxCount" class="text-xs text-stone-400 mt-1">₹0 active • 0 exchanges</p>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="indian-rupee" class="w-5 h-5"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Workspace: Two-Column Layout on Large Screens -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+
+            <!-- Left Column (8 cols): Item Listings & Filters -->
+            <section class="lg:col-span-8 space-y-5">
+                <!-- Filter & Search Controls Bar -->
+                <div class="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs space-y-3">
+                    <!-- Top Filter Row: Community Region Pills -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1" id="communityPillsContainer" role="tablist" aria-label="Filter by community region">
+                        <!-- Dynamically populated community pills -->
+                    </div>
+
+                    <!-- Bottom Filter Row: Mode Tabs, Category Select, Search & Available Toggle -->
+                    <div class="pt-2 border-t border-stone-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- Mode Filter Pills -->
+                            <div class="flex items-center gap-1 bg-stone-100 p-1 rounded-xl w-fit" role="tablist">
+                                <button onclick="setModeFilter('All')" id="tab-All" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-white text-stone-900 shadow-xs">
+                                    All
+                                </button>
+                                <button onclick="setModeFilter('Rent')" id="tab-Rent" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-stone-600 hover:text-stone-900">
+                                    Rent
+                                </button>
+                                <button onclick="setModeFilter('Lend')" id="tab-Lend" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-stone-600 hover:text-stone-900">
+                                    Lend (Free)
+                                </button>
+                            </div>
+
+                            <!-- Category Dropdown Filter -->
+                            <select id="categoryFilterSelect" onchange="setCategoryFilter(this.value)" class="px-3 py-2 text-xs font-semibold bg-stone-100 text-stone-700 border border-stone-200/70 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 cursor-pointer">
+                                <option value="All">All Categories</option>
+                            </select>
+
+                            <!-- Overdue Only Filter Pill -->
+                            <button onclick="toggleOverdueOnly()" id="overdueFilterBtn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-stone-200/80 bg-stone-50 text-stone-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-all cursor-pointer">
+                                <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                                <span>Overdue</span>
+                                <span id="overdueBadgeCount" class="font-mono text-[10px] px-1.5 rounded-full bg-stone-200 text-stone-700">0</span>
+                            </button>
+                        </div>
+
+                        <!-- Search & Available-Only Toggle -->
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 justify-end">
+                            <div class="relative flex-1 sm:max-w-xs">
+                                <i data-lucide="search" class="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                <input
+                                    type="text"
+                                    id="searchInput"
+                                    oninput="handleSearch(this.value)"
+                                    placeholder="Search item, owner, phone, region..."
+                                    class="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all"
+                                >
+                            </div>
+
+                            <label class="inline-flex items-center gap-2 cursor-pointer select-none px-1.5 py-1">
+                                <input type="checkbox" id="availableOnlyToggle" onchange="toggleAvailableOnly(this.checked)" class="sr-only peer">
+                                <div class="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600 relative"></div>
+                                <span class="text-xs font-medium text-stone-700 whitespace-nowrap">Available only</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Listings Count Subheader & View Switcher (Cards / Pandas Table / Community Summary) -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+                    <h2 class="text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2">
+                        <span id="listingsHeading">All Community Regions Listings</span>
+                        <span id="filteredCountBadge" class="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-stone-200/80 text-stone-700">0</span>
+                    </h2>
+
+                    <div class="flex items-center gap-1 bg-stone-200/70 p-1 rounded-xl w-fit" role="tablist" aria-label="Display Mode">
+                        <button onclick="setDisplayView('cards')" id="view-cards" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-900 shadow-xs transition-all cursor-pointer">
+                            <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                            <span>Cards</span>
+                        </button>
+                        <button onclick="setDisplayView('table')" id="view-table" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-600 hover:text-stone-900 transition-all cursor-pointer">
+                            <i data-lucide="table-2" class="w-3.5 h-3.5"></i>
+                            <span>Pandas Table</span>
+                        </button>
+                        <button onclick="setDisplayView('summary')" id="view-summary" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-600 hover:text-stone-900 transition-all cursor-pointer">
+                            <i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i>
+                            <span>Community Summary</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- VIEW A: Item Cards Grid -->
+                <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Populated dynamically via JS -->
+                </div>
+
+                <!-- VIEW B: Pandas-Style DataFrame Table (show_items_df equivalent) -->
+                <div id="pandasTableView" class="hidden bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden animate-card">
+                    <div class="px-4 py-3 bg-stone-900 text-stone-200 flex items-center justify-between text-xs font-mono">
+                        <span>df = app.to_dataframe(community_filter, mode_filter)</span>
+                        <span class="text-stone-400">MAX_RENTAL_DAYS = 14</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-stone-100/90 border-b border-stone-200 font-mono text-[11px] text-stone-600 uppercase">
+                                    <th class="py-2.5 px-3">item_id</th>
+                                    <th class="py-2.5 px-3">community</th>
+                                    <th class="py-2.5 px-3">title</th>
+                                    <th class="py-2.5 px-3">category</th>
+                                    <th class="py-2.5 px-3">mode</th>
+                                    <th class="py-2.5 px-3">pricing</th>
+                                    <th class="py-2.5 px-3">owner_contact</th>
+                                    <th class="py-2.5 px-3">status</th>
+                                    <th class="py-2.5 px-3 text-right">action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pandasTableBody" class="divide-y divide-stone-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- VIEW C: Community Summary Pivot & Average Daily Rate (community_summary equivalent) -->
+                <div id="communitySummaryView" class="hidden space-y-5 animate-card">
+                    <!-- Pivot Table: Listings by Community & Mode -->
+                    <div class="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
+                        <div class="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-bold text-stone-900">Listings by Community & Mode</h3>
+                                <p class="text-[11px] font-mono text-stone-500 mt-0.5">df.pivot_table(index="community", columns="mode", values="item_id", aggfunc="count")</p>
+                            </div>
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-stone-100 text-stone-700">Pivot Table</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                                <thead>
+                                    <tr class="bg-stone-50 border-b border-stone-200/80 text-xs font-semibold text-stone-600">
+                                        <th class="py-3 px-5">Community</th>
+                                        <th class="py-3 px-4 text-right text-emerald-700">Lend (Free)</th>
+                                        <th class="py-3 px-4 text-right text-indigo-700">Rent</th>
+                                        <th class="py-3 px-4 text-right">Total Listed</th>
+                                        <th class="py-3 px-5 text-right">Available Now</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="summaryPivotBody" class="divide-y divide-stone-100">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Average Daily Rental Rate by Community (₹) -->
+                    <div class="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
+                        <div class="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-bold text-stone-900">Average Daily Rental Rate by Community (₹)</h3>
+                                <p class="text-[11px] font-mono text-stone-500 mt-0.5">rent_only.groupby("community")["rate_per_day"].mean().round(1)</p>
+                            </div>
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700">Rent Listings Only</span>
+                        </div>
+                        <div id="summaryAvgRatesGrid" class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty State (Hidden when items exist) -->
+                <div id="emptyState" class="hidden bg-white rounded-2xl border border-dashed border-stone-300 p-10 text-center space-y-3">
+                    <div class="w-12 h-12 rounded-2xl bg-stone-100 text-stone-400 flex items-center justify-center mx-auto">
+                        <i data-lucide="search-x" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-stone-800">No matching neighborhood items</h3>
+                    <p class="text-sm text-stone-500 max-w-sm mx-auto">Try clearing your search filter, switching tabs, or list a new item for your neighbors.</p>
+                    <button onclick="clearFilters()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-stone-900 text-white hover:bg-stone-800 transition-colors cursor-pointer">
+                        Clear Filters
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Column (4 cols): Live Community Activity Log -->
+            <aside class="lg:col-span-4 bg-white rounded-2xl border border-stone-200/80 shadow-xs flex flex-col lg:sticky lg:top-24 max-h-[640px]">
+                <div class="p-4 sm:p-5 border-b border-stone-100 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="relative flex h-2.5 w-2.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <h2 class="text-sm sm:text-base font-bold text-stone-900">Community Activity Log</h2>
+                    </div>
+                    <button onclick="clearActivityLog()" class="text-xs font-medium text-stone-400 hover:text-rose-600 transition-colors cursor-pointer" title="Clear log entries">
+                        Clear Log
+                    </button>
+                </div>
+
+                <!-- Chronological Activity Feed (Newest on top) -->
+                <div id="activityLogList" class="p-4 space-y-3 overflow-y-auto flex-1">
+                    <!-- Populated dynamically -->
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-stone-200/70 bg-white py-5 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-stone-500">
+            <p><strong class="text-stone-700">LendLocal</strong> — Hyperlocal Peer-to-Peer Resource Sharing</p>
+            <p>Changes are automatically saved to your browser's local storage.</p>
+        </div>
+    </footer>
+
+    <!-- =====================================================================
+         MODAL 1: ADD NEW ITEM MODAL
+    ====================================================================== -->
+    <div id="addItemModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-xl border border-stone-200 overflow-hidden animate-card" onclick="event.stopPropagation()">
+                <!-- Category, Owner & Owner Phone Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="itemCategory" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Category *</label>
+                        <select id="itemCategory" class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                            <option value="Tools">Tools</option>
+                            <option value="Books">Books</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Outdoors">Outdoors</option>
+                            <option value="Household">Household</option>
+                            <option value="Recreation">Recreation</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="itemOwner" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Owner Name *</label>
+                        <input type="text" id="itemOwner" required placeholder="e.g., Rohan"
+                            class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <!-- Owner Contact Number (owner_phone) -->
+                <div>
+                    <label for="itemOwnerPhone" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Owner Contact Number *</label>
+                    <div class="relative">
+                        <i data-lucide="phone" class="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        <input type="tel" id="itemOwnerPhone" required placeholder="e.g., 9823011001"
+                            class="w-full pl-10 pr-3.5 py-2.5 text-sm font-mono bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <!-- Title -->
+                <div>
+                    <label for="itemTitle" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Item Title *</label>
+                    <input type="text" id="itemTitle" required placeholder="e.g., Cordless Drill, Camping Tent..."
+                        class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                </div>
+
+                <!-- Category & Owner Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="itemCategory" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Category *</label>
+                        <select id="itemCategory" class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                            <option value="Tools">Tools</option>
+                            <option value="Books">Books</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Outdoors">Outdoors</option>
+                            <option value="Household">Household</option>
+                            <option value="Recreation">Recreation</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="itemOwner" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Owner Name *</label>
+                        <input type="text" id="itemOwner" required placeholder="e.g., Rohan"
+                            class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <!-- Sharing Mode Selector (Rent vs Lend) -->
+                <div>
+                    <label class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Sharing Mode *</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="itemMode" value="Rent" checked onchange="handleModeToggle('Rent')" class="sr-only peer">
+                            <div class="p-3 rounded-xl border border-stone-200 bg-stone-50 peer-checked:bg-indigo-50/70 peer-checked:border-indigo-500 peer-checked:text-indigo-900 transition-all">
+                                <div class="flex items-center justify-between font-bold text-sm">
+                                    <span>Rent</span>
+                                    <i data-lucide="indian-rupee" class="w-4 h-4 text-indigo-600"></i>
+                                </div>
+                                <p class="text-[11px] text-stone-500 mt-0.5">Charge a daily fee</p>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="itemMode" value="Lend" onchange="handleModeToggle('Lend')" class="sr-only peer">
+                            <div class="p-3 rounded-xl border border-stone-200 bg-stone-50 peer-checked:bg-emerald-50/70 peer-checked:border-emerald-500 peer-checked:text-emerald-900 transition-all">
+                                <div class="flex items-center justify-between font-bold text-sm">
+                                    <span>Lend</span>
+                                    <i data-lucide="heart-handshake" class="w-4 h-4 text-emerald-600"></i>
+                                </div>
+                                <p class="text-[11px] text-stone-500 mt-0.5">Share free with neighbors</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Rate Per Day -->
+                <div>
+                    <label for="itemRate" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">
+                        Rate Per Day (₹)
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 font-semibold text-sm">₹</span>
+                        <input type="number" id="itemRate" min="0" step="1" value="100" required
+                            class="w-full pl-8 pr-4 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed transition-colors">
+                    </div>
+                    <p id="rateHelperText" class="text-[11px] text-stone-500 mt-1">Neighbors will pay this daily rate upon renting.</p>
+                </div>
+
+                <!-- Actions -->
+                <div class="pt-2 flex items-center justify-end gap-2.5">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-stone-900 hover:bg-stone-800 shadow-xs transition-all cursor-pointer">
+                        Publish Listing
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 2: REQUEST / RENT / BORROW ITEM MODAL
+    ====================================================================== -->
+    <div id="requestItemModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-xl border border-stone-200 overflow-hidden animate-card" onclick="event.stopPropagation()">
+            <div class="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
+                <div>
+                    <span id="reqModalBadge" class="inline-block text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md mb-1">Rent Item</span>
+                    <h3 id="reqModalTitle" class="text-base font-bold text-stone-900">Cordless Drill</h3>
+                </div>
+                <button onclick="closeRequestModal()" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <form id="requestItemForm" onsubmit="handleRequestSubmit(event)" class="p-6 space-y-4">
+                <input type="hidden" id="reqItemId">
+
+                <!-- Item Summary Strip -->
+                <div class="bg-stone-50 rounded-xl p-3.5 border border-stone-200/70 space-y-1.5 text-xs">
+                    <div class="flex items-center justify-between">
+                        <span class="text-stone-500">Community:</span>
+                        <strong id="reqModalCommunity" class="text-stone-800">Kothrud West</strong>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-stone-500">Owner:</span>
+                        <strong id="reqModalOwner" class="text-stone-800">Rohan (9823011001)</strong>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-stone-500">Rate:</span>
+                        <strong id="reqModalRate" class="text-stone-800">₹150/day</strong>
+                    </div>
+                </div>
+
+                <!-- Borrower Name & Contact Number Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label for="borrowerName" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Your Name *</label>
+                        <input type="text" id="borrowerName" required placeholder="e.g., Aarav"
+                            class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label for="borrowerPhone" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Contact Number *</label>
+                        <input type="tel" id="borrowerPhone" required placeholder="e.g., 9765010001"
+                            class="w-full px-3.5 py-2.5 text-sm font-mono bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <!-- Duration in Days (Enforces MAX_RENTAL_DAYS = 14) -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="borrowDays" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide">Duration (Days) *</label>
+                        <span class="text-[11px] font-mono font-semibold text-stone-500">Max: 14 days</span>
+                    </div>
+                    <input type="number" id="borrowDays" min="1" max="14" value="1" required oninput="updateCalculatedCost()"
+                        class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                    <p id="durationValidationMsg" class="hidden text-xs font-medium text-rose-600 mt-1.5 flex items-center gap-1">
+                        <i data-lucide="alert-circle" class="w-3.5 h-3.5 shrink-0"></i>
+                        <span>Duration cannot exceed 14 days (MAX_RENTAL_DAYS = 14).</span>
+                    </p>
+                </div>
+
+                <!-- Dynamic Total Cost & Due Timestamp Box -->
+                <div class="rounded-xl p-4 bg-gradient-to-r from-stone-900 to-stone-800 text-white space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-stone-300">Estimated Total Cost</p>
+                            <p id="reqCostBreakdown" class="text-[11px] text-stone-400 mt-0.5">₹150 × 1 day(s)</p>
+                        </div>
+                        <div class="text-right">
+                            <span id="reqTotalCost" class="text-2xl font-extrabold tracking-tight">₹150</span>
+                        </div>
+                    </div>
+                    <div class="pt-2 border-t border-stone-700/80 flex items-center justify-between text-xs">
+                        <span class="text-stone-400 flex items-center gap-1">
+                            <i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-400"></i>
+                            Due Date & Time:
+                        </span>
+                        <span id="reqDuePreview" class="font-mono font-semibold text-emerald-300">2026-11-25 01:59</span>
+                    </div>
+                </div>
+
+                <!-- Borrower Name -->
+                <div>
+                    <label for="borrowerName" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Your Name (Borrower) *</label>
+                    <input type="text" id="borrowerName" required placeholder="e.g., Aarav"
+                        class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                </div>
+
+                <!-- Duration in Days -->
+                <div>
+                    <label for="borrowDays" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Duration (Days) *</label>
+                    <input type="number" id="borrowDays" min="1" max="365" value="1" required oninput="updateCalculatedCost()"
+                        class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500">
+                </div>
+
+                <!-- Dynamic Total Cost Calculation Box -->
+                <div class="rounded-xl p-4 bg-gradient-to-r from-stone-900 to-stone-800 text-white flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-stone-300">Estimated Total Cost</p>
+                        <p id="reqCostBreakdown" class="text-[11px] text-stone-400 mt-0.5">₹150 × 1 day(s)</p>
+                    </div>
+                    <div class="text-right">
+                        <span id="reqTotalCost" class="text-2xl font-extrabold tracking-tight">₹150</span>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex items-center justify-end gap-2.5">
+                    <button type="button" onclick="closeRequestModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="submit" id="reqConfirmBtn" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-all cursor-pointer">
+                        Confirm Rental
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 3: EDIT COMMUNITY REGION MODAL
+    ====================================================================== -->
+    <div id="regionModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs">
+        <div class="bg-white rounded-2xl max-w-sm w-full shadow-xl border border-stone-200 overflow-hidden animate-card" onclick="event.stopPropagation()">
+            <div class="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
+                <h3 class="text-base font-bold text-stone-900">Switch Community Region</h3>
+                <button onclick="closeRegionModal()" class="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <form onsubmit="handleRegionSubmit(event)" class="p-6 space-y-4">
+                <div>
+                    <label for="regionInput" class="block text-xs font-semibold text-stone-700 uppercase tracking-wide mb-1.5">Neighborhood / Society Name</label>
+                    <input type="text" id="regionInput" required placeholder="e.g., Kothrud West, Baner Hills..."
+                        class="w-full px-3.5 py-2.5 text-sm bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500">
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                    <button type="button" onclick="document.getElementById('regionInput').value='Kothrud West'" class="text-xs px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer">Kothrud West</button>
+                    <button type="button" onclick="document.getElementById('regionInput').value='Aundh Enclave'" class="text-xs px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer">Aundh Enclave</button>
+                    <button type="button" onclick="document.getElementById('regionInput').value='Viman Nagar'" class="text-xs px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer">Viman Nagar</button>
+                </div>
+                <div class="pt-2 flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeRegionModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-100 cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-stone-900 hover:bg-stone-800 cursor-pointer">Save Region</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- =====================================================================
+         APPLICATION LOGIC (Multi-Community LendLocal Implementation)
+    ====================================================================== -->
+    <script>
+        const STORAGE_KEY = 'lendlocal_multicommunity_state_v3';
+        const MAX_RENTAL_DAYS = 14;
+
+        /**
+         * Formats a Date object matching Python's DATE_FORMAT = "%Y-%m-%d %H:%M"
+         */
+        function formatDateTime(dateObj = new Date()) {
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+        }
+
+        function getFormattedNow() {
+            return formatDateTime(new Date());
+        }
+
+        function parseDateTime(str) {
+            if (!str) return null;
+            const match = str.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$/);
+            if (!match) return null;
+            return new Date(
+                Number(match[1]),
+                Number(match[2]) - 1,
+                Number(match[3]),
+                Number(match[4]),
+                Number(match[5])
+            );
+        }
+
+        /**
+         * Mirrors LendLocal.is_overdue(due_at_str)
+         */
+        function isOverdue(dueAtStr) {
+            if (!dueAtStr) return false;
+            const dueDate = parseDateTime(dueAtStr);
+            if (!dueDate || isNaN(dueDate.getTime())) return false;
+            return new Date() > dueDate;
+        }
+
+        /**
+         * Builds the exact initial state from load_default_data(app) + run_demo()
+         */
+        function createDefaultDemoState() {
+            const startDt = new Date();
+            const ts = formatDateTime(startDt);
+
+            const rawItems = [
+                // Place 1: Kothrud West + 3 initial items
+                [1, "Cordless Drill", "Tools", "Kothrud West", "Rohan", "9823011001", "Rent", 150],
+                [2, "Python & Math Textbooks", "Books", "Kothrud West", "Ananya", "9823011002", "Lend", 0],
+                [3, "Camera Tripod", "Electronics", "Kothrud West", "Kabir", "9823011003", "Rent", 120],
+
+                // First batch of 10 additional items (Kothrud West)
+                [4, "Soldering Iron Kit", "Tools", "Kothrud West", "Aarav", "9823011004", "Rent", 80],
+                [5, "Scientific Calculator", "Electronics", "Kothrud West", "Meera", "9823011005", "Lend", 0],
+                [6, "Badminton Racquet Pair", "Sports", "Kothrud West", "Siddharth", "9823011006", "Lend", 0],
+                [7, "2-Person Camping Tent", "Outdoors", "Kothrud West", "Neha", "9823011007", "Rent", 250],
+                [8, "Extension Cord (10m)", "Household", "Kothrud West", "Vikram", "9823011008", "Lend", 0],
+                [9, "Measuring Tape & Spirit Level", "Tools", "Kothrud West", "Pooja", "9823011009", "Lend", 0],
+                [10, "Portable Bluetooth Speaker", "Electronics", "Kothrud West", "Dev", "9823011010", "Rent", 100],
+                [11, "Board Game Collection", "Recreation", "Kothrud West", "Rhea", "9823011011", "Lend", 0],
+                [12, "Pressure Washer", "Household", "Kothrud West", "Kunal", "9823011012", "Rent", 300],
+                [13, "Study Desk Lamp", "Household", "Kothrud West", "Tanvi", "9823011013", "Lend", 0],
+
+                // Place 2: Paud Road (4 items)
+                [14, "Ring Light & Mic Set", "Electronics", "Paud Road", "Aditya", "9823022001", "Rent", 140],
+                [15, "DSA & Algorithms Notes", "Books", "Paud Road", "Sneha", "9823022002", "Lend", 0],
+                [16, "Folding Step Ladder", "Tools", "Paud Road", "Manav", "9823022003", "Rent", 110],
+                [17, "Yoga Mat & Block Set", "Sports", "Paud Road", "Ishita", "9823022004", "Lend", 0],
+
+                // Place 3: Bavdhan (3 items)
+                [18, "Portable Projector", "Electronics", "Bavdhan", "Nikhil", "9823033001", "Rent", 350],
+                [19, "Trekking Backpack (45L)", "Outdoors", "Bavdhan", "Kavya", "9823033002", "Lend", 0],
+                [20, "Electric Glue Gun", "Tools", "Bavdhan", "Harsh", "9823033003", "Lend", 0],
+
+                // Place 4: Karve Nagar (3 items)
+                [21, "Sewing Machine", "Household", "Karve Nagar", "Sunita", "9823044001", "Rent", 130],
+                [22, "Cricket Bat & Stumps", "Sports", "Karve Nagar", "Pranav", "9823044002", "Lend", 0],
+                [23, "Linear Algebra Workbook", "Books", "Karve Nagar", "Rutuja", "9823044003", "Lend", 0]
+            ];
+
+            const items = rawItems.map(([item_id, title, category, community, owner, owner_phone, mode, rate_per_day]) => ({
+                item_id,
+                title,
+                category,
+                community,
+                owner,
+                owner_phone,
+                mode,
+                rate_per_day,
+                available: true,
+                borrower: '',
+                borrower_phone: '',
+                borrowed_at: '',
+                due_at: '',
+                days: 0,
+                active_cost: 0
+            }));
+
+            const history = items.map(
+                item => `[${ts}] LISTED: '${item.title}' (${item.mode}) in ${item.community} by ${item.owner} (${item.owner_phone})`
+            );
+
+            // Apply run_demo() sample requests:
+            // #1 rented by Aarav (9765010001) for 2 days
+            // #14 rented by Rhea (9765010002) for 14 days
+            // #18 requested by Meera (9765010003) for 20 days -> rejected (> MAX_RENTAL_DAYS = 14)
+            const demoRequests = [
+                { item_id: 1, borrower: 'Aarav', borrower_phone: '9765010001', days: 2 },
+                { item_id: 14, borrower: 'Rhea', borrower_phone: '9765010002', days: 14 }
+            ];
+
+            const transactions = [];
+
+            demoRequests.forEach(({ item_id, borrower, borrower_phone, days }) => {
+                const item = items.find(i => i.item_id === item_id);
+                if (!item) return;
+
+                const dueDt = new Date(startDt.getTime() + days * 24 * 60 * 60 * 1000);
+                const dueStr = formatDateTime(dueDt);
+                const total_cost = item.mode === 'Rent' ? item.rate_per_day * days : 0;
+
+                item.available = false;
+                item.borrower = borrower;
+                item.borrower_phone = borrower_phone;
+                item.borrowed_at = ts;
+                item.due_at = dueStr;
+                item.days = days;
+                item.active_cost = total_cost;
+
+                const action = item.mode === 'Rent' ? 'RENTED' : 'BORROWED';
+                history.push(
+                    `[${ts}] ${action}: ${item.borrower} (${item.borrower_phone}) took '${item.title}' ` +
+                    `from ${item.owner} (${item.owner_phone}) in ${item.community} ` +
+                    `for ${days} day(s) | Due: ${dueStr} | Total: ₹${total_cost}`
+                );
+                transactions.push({
+                    item_id: item.item_id,
+                    community: item.community,
+                    mode: item.mode,
+                    cost: total_cost
+                });
+            });
+
+            // Log the demo validation rejection for #18 Portable Projector (20 days > 14 days)
+            history.push(
+                `[${ts}] REJECTED: Request by Meera (9765010003) for '#18 Portable Projector' (20 days) declined — Duration cannot exceed ${MAX_RENTAL_DAYS} days.`
+            );
+
+            return {
+                _next_id: 24,
+                items,
+                history,
+                transactions
+            };
+        }
+
+        // Application State & UI Filter State
+        let appState = loadState();
+        let uiFilters = {
+            community: 'All',     // 'All' or community name
+            mode: 'All',          // 'All' | 'Rent' | 'Lend'
+            category: 'All',      // 'All' or category name
+            availableOnly: false,
+            overdueOnly: false,
+            displayView: 'cards', // 'cards' | 'table' | 'summary'
+            searchQuery: ''
+        };
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && Array.isArray(parsed.items) && Array.isArray(parsed.history)) {
+                        if (!Array.isArray(parsed.transactions)) parsed.transactions = [];
+                        return parsed;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to parse saved state, falling back to demo data.', e);
+            }
+            const initial = createDefaultDemoState();
+            saveState(initial);
+            return initial;
+        }
+
+        function saveState(state = appState) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.error('Could not save state to localStorage', e);
+            }
+        }
+
+        /* =====================================================================
+           CORE LENDLOCAL OPERATIONS (Mirroring Updated Python Methods)
+        ===================================================================== */
+
+        function addItem(title, category, community, owner, ownerPhone, mode, ratePerDay = 0) {
+            const normalizedMode = mode === 'Rent' ? 'Rent' : 'Lend';
+            const fee = normalizedMode === 'Rent' ? Math.max(0, parseInt(ratePerDay, 10) || 0) : 0;
+
+            const newItem = {
+                item_id: appState._next_id++,
+                title: title.trim(),
+                category: category.trim(),
+                community: community.trim(),
+                owner: owner.trim(),
+                owner_phone: ownerPhone.trim(),
+                mode: normalizedMode,
+                rate_per_day: fee,
+                available: true,
+                borrower: '',
+                borrower_phone: '',
+                borrowed_at: '',
+                due_at: '',
+                days: 0,
+                active_cost: 0
+            };
+
+            appState.items.push(newItem);
+            const logEntry = `[${getFormattedNow()}] LISTED: '${newItem.title}' (${newItem.mode}) in ${newItem.community} by ${newItem.owner} (${newItem.owner_phone})`;
+            appState.history.push(logEntry);
+
+            saveState();
+            renderAll();
+            showToast(`Listed '${newItem.title}' in ${newItem.community} (#${newItem.item_id})`, 'emerald');
+        }
+
+        function requestItem(itemId, borrower, borrowerPhone, days = 1) {
+            const item = appState.items.find(i => i.item_id === itemId);
+            if (!item || !item.available) return;
+
+            if (days < 1 || days > MAX_RENTAL_DAYS) {
+                showToast(`Duration cannot exceed ${MAX_RENTAL_DAYS} days.`, 'rose');
+                return;
+            }
+            if (!borrower.trim() || !borrowerPhone.trim()) {
+                showToast('Borrower name and contact number are required.', 'rose');
+                return;
+            }
+
+            const startDt = new Date();
+            const dueDt = new Date(startDt.getTime() + days * 24 * 60 * 60 * 1000);
+            const startStr = formatDateTime(startDt);
+            const dueStr = formatDateTime(dueDt);
+
+            const totalCost = item.mode === 'Rent' ? item.rate_per_day * days : 0;
+            item.available = false;
+            item.borrower = borrower.trim();
+            item.borrower_phone = borrowerPhone.trim();
+            item.borrowed_at = startStr;
+            item.due_at = dueStr;
+            item.days = days;
+            item.active_cost = totalCost;
+
+            appState.transactions.push({
+                item_id: item.item_id,
+                community: item.community,
+                mode: item.mode,
+                cost: totalCost
+            });
+
+            const action = item.mode === 'Rent' ? 'RENTED' : 'BORROWED';
+            const logEntry =
+                `[${startStr}] ${action}: ${item.borrower} (${item.borrower_phone}) took '${item.title}' ` +
+                `from ${item.owner} (${item.owner_phone}) in ${item.community} ` +
+                `for ${days} day(s) | Due: ${dueStr} | Total: ₹${totalCost}`;
+            appState.history.push(logEntry);
+
+            saveState();
+            renderAll();
+            showToast(
+                item.mode === 'Rent'
+                    ? `${item.borrower} rented '${item.title}' until ${dueStr} (₹${totalCost})`
+                    : `${item.borrower} borrowed '${item.title}' until ${dueStr}`,
+                item.mode === 'Rent' ? 'indigo' : 'emerald'
+            );
+        }
+
+        function returnItem(itemId) {
+            const item = appState.items.find(i => i.item_id === itemId);
+            if (!item || item.available) return;
+
+            const prevBorrower = item.borrower;
+            const prevPhone = item.borrower_phone;
+            const overdueNote = isOverdue(item.due_at) ? ' (returned past due date)' : '';
+
+            item.available = true;
+            item.borrower = '';
+            item.borrower_phone = '';
+            item.borrowed_at = '';
+            item.due_at = '';
+            item.days = 0;
+            item.active_cost = 0;
+
+            const logEntry =
+                `[${getFormattedNow()}] RETURNED: '${item.title}' returned by ${prevBorrower} (${prevPhone}) ` +
+                `to ${item.owner} (${item.owner_phone}) in ${item.community}${overdueNote}`;
+            appState.history.push(logEntry);
+
+            saveState();
+            renderAll();
+            showToast(`'${item.title}' returned by ${prevBorrower}${overdueNote}`, overdueNote ? 'rose' : 'amber');
+        }
+
+        /**
+         * Simulates an overdue rental by shifting an active loan's due_at into the past
+         */
+        function simulateOverdueItem() {
+            const pastBorrowed = formatDateTime(new Date(Date.now() - 4 * 24 * 60 * 60 * 1000));
+            const pastDue = formatDateTime(new Date(Date.now() - 3 * 60 * 60 * 1000)); // 3 hours overdue
+
+            // Prefer an existing active item that isn't already overdue, or loan out an available item
+            let target = appState.items.find(i => !i.available && !isOverdue(i.due_at));
+
+            if (target) {
+                target.borrowed_at = pastBorrowed;
+                target.due_at = pastDue;
+                saveState();
+                renderAll();
+                showToast(`Simulated [OVERDUE] status on '#${target.item_id} ${target.title}' (Due: ${pastDue})`, 'rose');
+                return;
+            }
+
+            const avail = appState.items.find(i => i.available);
+            if (avail) {
+                const days = 3;
+                const totalCost = avail.mode === 'Rent' ? avail.rate_per_day * days : 0;
+                avail.available = false;
+                avail.borrower = 'Kabir';
+                avail.borrower_phone = '9765099887';
+                avail.borrowed_at = pastBorrowed;
+                avail.due_at = pastDue;
+                avail.days = days;
+                avail.active_cost = totalCost;
+
+                appState.transactions.push({
+                    item_id: avail.item_id,
+                    community: avail.community,
+                    mode: avail.mode,
+                    cost: totalCost
+                });
+
+                const action = avail.mode === 'Rent' ? 'RENTED' : 'BORROWED';
+                appState.history.push(
+                    `[${pastBorrowed}] ${action}: ${avail.borrower} (${avail.borrower_phone}) took '${avail.title}' ` +
+                    `from ${avail.owner} (${avail.owner_phone}) in ${avail.community} ` +
+                    `for ${days} day(s) | Due: ${pastDue} | Total: ₹${totalCost}`
+                );
+                saveState();
+                renderAll();
+                showToast(`Created overdue demo loan on '#${avail.item_id} ${avail.title}'`, 'rose');
+            }
+        }
+
+        /**
+         * Exports exact JSON structure matching save_to_json(filepath="lendlocal_data.json")
+         */
+        function exportToJson() {
+            const payload = {
+                saved_at: getFormattedNow(),
+                next_id: appState._next_id,
+                items: appState.items.map(item => ({
+                    item_id: item.item_id,
+                    title: item.title,
+                    category: item.category,
+                    community: item.community,
+                    owner: item.owner,
+                    owner_phone: item.owner_phone || '',
+                    mode: item.mode,
+                    rate_per_day: item.rate_per_day,
+                    available: item.available,
+                    borrower: item.borrower || '',
+                    borrower_phone: item.borrower_phone || '',
+                    borrowed_at: item.borrowed_at || '',
+                    due_at: item.due_at || ''
+                })),
+                history: appState.history
+            };
+
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'lendlocal_data.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+
+            showToast(`Exported ${payload.items.length} items to lendlocal_data.json`, 'indigo');
+        }
+
+        /**
+         * Imports JSON structure matching load_from_json(filepath="lendlocal_data.json")
+         */
+        function handleJsonImport(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data || !Array.isArray(data.items)) {
+                        throw new Error('Invalid LendLocal JSON schema: missing items array.');
+                    }
+
+                    const importedItems = data.items.map((row, idx) => ({
+                        item_id: Number(row.item_id) || idx + 1,
+                        title: String(row.title || 'Untitled').trim(),
+                        category: String(row.category || 'Other').trim(),
+                        community: String(row.community || 'Kothrud West').trim(),
+                        owner: String(row.owner || 'Neighbor').trim(),
+                        owner_phone: String(row.owner_phone || '').trim(),
+                        mode: row.mode === 'Rent' ? 'Rent' : 'Lend',
+                        rate_per_day: row.mode === 'Rent' ? (Number(row.rate_per_day) || 0) : 0,
+                        available: Boolean(row.available),
+                        borrower: String(row.borrower || '').trim(),
+                        borrower_phone: String(row.borrower_phone || '').trim(),
+                        borrowed_at: String(row.borrowed_at || '').trim(),
+                        due_at: String(row.due_at || '').trim(),
+                        days: Number(row.days) || 1,
+                        active_cost: Number(row.active_cost) || 0
+                    }));
+
+                    const maxId = importedItems.reduce((m, i) => Math.max(m, i.item_id), 0);
+                    appState = {
+                        _next_id: Math.max(Number(data.next_id) || 1, maxId + 1),
+                        items: importedItems,
+                        history: Array.isArray(data.history) ? data.history : [],
+                        transactions: importedItems
+                            .filter(i => !i.available && i.mode === 'Rent')
+                            .map(i => ({
+                                item_id: i.item_id,
+                                community: i.community,
+                                mode: i.mode,
+                                cost: i.active_cost || i.rate_per_day
+                            }))
+                    };
+
+                    saveState();
+                    renderAll();
+                    showToast(`Reloaded ${importedItems.length} items from '${file.name}'`, 'emerald');
+                } catch (err) {
+                    showToast(`Failed to import JSON: ${err.message}`, 'rose');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetToDemoData() {
+            appState = createDefaultDemoState();
+            saveState();
+            renderAll();
+            showToast('Restored default 23-item multi-community demo state', 'stone');
+        }
+
+        function clearActivityLog() {
+            appState.history = [];
+            saveState();
+            renderActivityLog();
+            showToast('Activity log cleared', 'stone');
+        }
+
+        /* =====================================================================
+           FILTERING & UI STATE HANDLERS
+        ===================================================================== */
+
+        function getAllCommunities() {
+            const seen = new Set(['Kothrud West', 'Paud Road', 'Bavdhan', 'Karve Nagar']);
+            appState.items.forEach(item => {
+                if (item.community) seen.add(item.community);
+            });
+            return Array.from(seen);
+        }
+
+        function setCommunityFilter(community) {
+            uiFilters.community = community;
+            renderAll();
+        }
+
+        function setModeFilter(mode) {
+            uiFilters.mode = mode;
+            ['All', 'Rent', 'Lend'].forEach(tab => {
+                const el = document.getElementById(`tab-${tab}`);
+                if (tab === mode) {
+                    el.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-white text-stone-900 shadow-xs';
+                } else {
+                    el.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-stone-600 hover:text-stone-900';
+                }
+            });
+            renderListingsAndViews();
+        }
+
+        function setCategoryFilter(category) {
+            uiFilters.category = category;
+            renderListingsAndViews();
+        }
+
+        function toggleAvailableOnly(checked) {
+            uiFilters.availableOnly = checked;
+            if (checked && uiFilters.overdueOnly) {
+                uiFilters.overdueOnly = false;
+                syncOverdueFilterButton();
+            }
+            renderListingsAndViews();
+        }
+
+        function toggleOverdueOnly() {
+            uiFilters.overdueOnly = !uiFilters.overdueOnly;
+            if (uiFilters.overdueOnly && uiFilters.availableOnly) {
+                uiFilters.availableOnly = false;
+                document.getElementById('availableOnlyToggle').checked = false;
+            }
+            syncOverdueFilterButton();
+            renderListingsAndViews();
+        }
+
+        function syncOverdueFilterButton() {
+            const btn = document.getElementById('overdueFilterBtn');
+            if (!btn) return;
+            if (uiFilters.overdueOnly) {
+                btn.className = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-rose-600 bg-rose-600 text-white shadow-xs transition-all cursor-pointer';
+            } else {
+                btn.className = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-stone-200/80 bg-stone-50 text-stone-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-all cursor-pointer';
+            }
+        }
+
+        function setDisplayView(view) {
+            uiFilters.displayView = view;
+            ['cards', 'table', 'summary'].forEach(v => {
+                const btn = document.getElementById(`view-${v}`);
+                if (!btn) return;
+                if (v === view) {
+                    btn.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-stone-900 shadow-xs transition-all cursor-pointer';
+                } else {
+                    btn.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-600 hover:text-stone-900 transition-all cursor-pointer';
+                }
+            });
+            renderListingsAndViews();
+        }
+
+        function handleSearch(query) {
+            uiFilters.searchQuery = query.trim().toLowerCase();
+            renderListingsAndViews();
+        }
+
+        function clearFilters() {
+            uiFilters.community = 'All';
+            uiFilters.mode = 'All';
+            uiFilters.category = 'All';
+            uiFilters.availableOnly = false;
+            uiFilters.overdueOnly = false;
+            uiFilters.searchQuery = '';
+            document.getElementById('searchInput').value = '';
+            document.getElementById('availableOnlyToggle').checked = false;
+            document.getElementById('categoryFilterSelect').value = 'All';
+            syncOverdueFilterButton();
+            setModeFilter('All');
+            renderAll();
+        }
+
+        function getFilteredItems() {
+            return appState.items.filter(item => {
+                if (uiFilters.community !== 'All' && item.community.toLowerCase() !== uiFilters.community.toLowerCase()) return false;
+                if (uiFilters.mode !== 'All' && item.mode !== uiFilters.mode) return false;
+                if (uiFilters.category !== 'All' && item.category !== uiFilters.category) return false;
+                if (uiFilters.availableOnly && !item.available) return false;
+                if (uiFilters.overdueOnly && (item.available || !isOverdue(item.due_at))) return false;
+                if (uiFilters.searchQuery) {
+                    const haystack = `${item.title} ${item.owner} ${item.owner_phone} ${item.borrower} ${item.borrower_phone} ${item.category} ${item.community} #${item.item_id}`.toLowerCase();
+                    if (!haystack.includes(uiFilters.searchQuery)) return false;
+                }
+                return true;
+            });
+        }
+
+        function copyPhoneToClipboard(phone) {
+            if (!phone) return;
+            const temp = document.createElement('textarea');
+            temp.value = phone;
+            document.body.appendChild(temp);
+            temp.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Copied phone number ${phone}`, 'stone');
+            } catch (e) {
+                showToast(`Phone: ${phone}`, 'stone');
+            }
+            temp.remove();
+        }
+
+        /* =====================================================================
+           RENDERING FUNCTIONS
+        ===================================================================== */
+
+        function renderAll() {
+            renderCommunityControls();
+            renderCategoryDropdown();
+            renderStats();
+            renderListingsAndViews();
+            renderActivityLog();
+            lucide.createIcons();
+        }
+
+        function renderCommunityControls() {
+            const communities = getAllCommunities();
+            const container = document.getElementById('communityPillsContainer');
+
+            document.getElementById('regionDisplay').textContent =
+                uiFilters.community === 'All'
+                    ? `All Community Regions (${communities.length})`
+                    : uiFilters.community;
+
+            document.getElementById('listingsHeading').textContent =
+                uiFilters.community === 'All'
+                    ? 'All Community Regions Listings'
+                    : `${uiFilters.community} Listings`;
+
+            const allCount = appState.items.length;
+            const pills = [
+                { key: 'All', label: 'All Regions', count: allCount },
+                ...communities.map(comm => ({
+                    key: comm,
+                    label: comm,
+                    count: appState.items.filter(i => i.community.toLowerCase() === comm.toLowerCase()).length
+                }))
+            ];
+
+            container.innerHTML = pills.map(p => {
+                const isActive = uiFilters.community.toLowerCase() === p.key.toLowerCase();
+                const activeClasses = isActive
+                    ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
+                    : 'bg-stone-50 text-stone-600 border-stone-200/80 hover:bg-stone-100 hover:text-stone-900';
+                const badgeClasses = isActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-stone-200/80 text-stone-700';
+
+                return `
+                    <button
+                        onclick="setCommunityFilter('${escapeJsString(p.key)}')"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${activeClasses}"
+                    >
+                        ${p.key !== 'All' ? '<i data-lucide="map-pin" class="w-3 h-3 opacity-80"></i>' : ''}
+                        <span>${escapeHtml(p.label)}</span>
+                        <span class="font-mono text-[10px] px-1.5 py-0.2 rounded-full ${badgeClasses}">${p.count}</span>
+                    </button>
+                `;
+            }).join('');
+
+            const datalist = document.getElementById('communityDatalist');
+            if (datalist) {
+                datalist.innerHTML = communities.map(c => `<option value="${escapeHtml(c)}">`).join('');
+            }
+        }
+
+        function renderCategoryDropdown() {
+            const select = document.getElementById('categoryFilterSelect');
+            const categories = Array.from(new Set(appState.items.map(i => i.category))).sort();
+            const currentVal = uiFilters.category;
+
+            select.innerHTML = `<option value="All">All Categories</option>` +
+                categories.map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+
+            select.value = categories.includes(currentVal) || currentVal === 'All' ? currentVal : 'All';
+        }
+
+        function renderStats() {
+            const scopedItems = uiFilters.community === 'All'
+                ? appState.items
+                : appState.items.filter(i => i.community.toLowerCase() === uiFilters.community.toLowerCase());
+
+            const scopedTx = uiFilters.community === 'All'
+                ? appState.transactions
+                : appState.transactions.filter(t => t.community.toLowerCase() === uiFilters.community.toLowerCase());
+
+            const total = scopedItems.length;
+            const available = scopedItems.filter(i => i.available).length;
+            const inUse = total - available;
+            const overdueCount = scopedItems.filter(i => !i.available && isOverdue(i.due_at)).length;
+
+            const lifetimeRent = scopedTx.reduce((sum, t) => sum + (t.cost || 0), 0);
+            const activeRent = scopedItems
+                .filter(i => !i.available && i.mode === 'Rent')
+                .reduce((sum, i) => sum + (i.active_cost || (i.rate_per_day * (i.days || 1))), 0);
+
+            document.getElementById('statTotalItems').textContent = total;
+            document.getElementById('statScopeLabel').textContent =
+                uiFilters.community === 'All' ? `Across ${getAllCommunities().length} regions` : `In ${uiFilters.community}`;
+            document.getElementById('statAvailableItems').textContent = available;
+            document.getElementById('statActiveLoans').textContent = inUse;
+            document.getElementById('statTotalVolume').textContent = `₹${lifetimeRent.toLocaleString('en-IN')}`;
+            document.getElementById('statTxCount').textContent =
+                `₹${activeRent.toLocaleString('en-IN')} active • ${scopedTx.length} exchange${scopedTx.length === 1 ? '' : 's'}`;
+
+            const overdueBadge = document.getElementById('overdueBadgeCount');
+            if (overdueBadge) {
+                overdueBadge.textContent = overdueCount;
+                overdueBadge.className = overdueCount > 0
+                    ? 'font-mono text-[10px] px-1.5 rounded-full bg-rose-600 text-white'
+                    : 'font-mono text-[10px] px-1.5 rounded-full bg-stone-200 text-stone-700';
+            }
+        }
+
+        function getCategoryIcon(category) {
+            const map = {
+                Tools: 'wrench',
+                Books: 'book-open',
+                Electronics: 'camera',
+                Sports: 'trophy',
+                Outdoors: 'tent',
+                Household: 'home',
+                Recreation: 'gamepad-2',
+                Kitchen: 'utensils',
+                Other: 'box'
+            };
+            return map[category] || 'box';
+        }
+
+        function getCommunityBadgeStyle(community) {
+            const styles = {
+                'Kothrud West': 'bg-rose-50 text-rose-700 border-rose-200/80',
+                'Paud Road': 'bg-sky-50 text-sky-700 border-sky-200/80',
+                'Bavdhan': 'bg-violet-50 text-violet-700 border-violet-200/80',
+                'Karve Nagar': 'bg-teal-50 text-teal-700 border-teal-200/80'
+            };
+            return styles[community] || 'bg-stone-100 text-stone-700 border-stone-200/80';
+        }
+
+        function renderListingsAndViews() {
+            const grid = document.getElementById('itemsGrid');
+            const tableView = document.getElementById('pandasTableView');
+            const summaryView = document.getElementById('communitySummaryView');
+            const emptyState = document.getElementById('emptyState');
+
+            const filtered = getFilteredItems();
+            document.getElementById('filteredCountBadge').textContent = filtered.length;
+
+            // Hide all three main view containers first
+            grid.classList.add('hidden');
+            tableView.classList.add('hidden');
+            summaryView.classList.add('hidden');
+            emptyState.classList.add('hidden');
+
+            if (uiFilters.displayView === 'summary') {
+                summaryView.classList.remove('hidden');
+                renderCommunitySummary();
+                lucide.createIcons();
+                return;
+            }
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                lucide.createIcons();
+                return;
+            }
+
+            if (uiFilters.displayView === 'table') {
+                tableView.classList.remove('hidden');
+                renderPandasTable(filtered);
+                lucide.createIcons();
+                return;
+            }
+
+            // Default: Card Grid View
+            grid.classList.remove('hidden');
+            renderItemsCards(filtered);
+            lucide.createIcons();
+        }
+
+        function renderItemsCards(filtered) {
+            const grid = document.getElementById('itemsGrid');
+
+            grid.innerHTML = filtered.map(item => {
+                const isRent = item.mode === 'Rent';
+                const overdue = !item.available && isOverdue(item.due_at);
+
+                const modeBadgeClass = isRent
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200/80'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
+
+                const communityBadgeClass = getCommunityBadgeStyle(item.community);
+
+                const pricingText = isRent
+                    ? `<span class="text-lg font-extrabold text-stone-900">₹${item.rate_per_day}</span><span class="text-xs text-stone-500 font-medium">/day</span>`
+                    : `<span class="text-base font-extrabold text-emerald-700">Free</span><span class="text-xs text-emerald-600/80 font-medium ml-1">(Lend)</span>`;
+
+                let statusBlock = '';
+                if (item.available) {
+                    statusBlock = `
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Available
+                        </span>`;
+                } else {
+                    statusBlock = `
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${overdue ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-amber-50 text-amber-800 border-amber-200/80'} border">
+                                <span class="w-1.5 h-1.5 rounded-full ${overdue ? 'bg-rose-600 animate-ping' : 'bg-amber-500'}"></span>
+                                With ${escapeHtml(item.borrower)}
+                                ${overdue ? '<span class="font-mono text-[10px] font-extrabold text-rose-700 ml-0.5">[OVERDUE]</span>' : ''}
+                            </span>
+                        </div>`;
+                }
+
+                const activeLoanDetails = !item.available ? `
+                    <div class="rounded-xl p-2.5 text-[11px] space-y-1 ${overdue ? 'bg-rose-50/90 border border-rose-200 text-rose-900' : 'bg-amber-50/70 border border-amber-200/70 text-stone-700'}">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-stone-500">Borrower Contact:</span>
+                            <button onclick="copyPhoneToClipboard('${escapeJsString(item.borrower_phone)}')" class="font-mono font-semibold inline-flex items-center gap-1 hover:underline cursor-pointer" title="Click to copy phone">
+                                <i data-lucide="phone" class="w-3 h-3"></i>
+                                ${escapeHtml(item.borrower_phone || 'N/A')}
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-stone-500">Due At:</span>
+                            <span class="font-mono font-semibold ${overdue ? 'text-rose-700 font-bold' : 'text-stone-800'}">
+                                ${escapeHtml(item.due_at || 'N/A')} ${overdue ? '[OVERDUE]' : ''}
+                            </span>
+                        </div>
+                    </div>
+                ` : '';
+
+                const actionButton = item.available
+                    ? `<button onclick="openRequestModal(${item.item_id})" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white ${isRent ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'} shadow-xs active:scale-[0.99] transition-all cursor-pointer">
+                           <i data-lucide="${isRent ? 'calendar-check' : 'hand-helping'}" class="w-4 h-4"></i>
+                           <span>${isRent ? 'Rent Item' : 'Borrow Item'}</span>
+                       </button>`
+                    : `<button onclick="returnItem(${item.item_id})" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold ${overdue ? 'text-white bg-rose-600 hover:bg-rose-700' : 'text-amber-900 bg-amber-100/80 hover:bg-amber-200/80 border border-amber-300/70'} active:scale-[0.99] transition-all cursor-pointer">
+                           <i data-lucide="corner-down-left" class="w-4 h-4"></i>
+                           <span>Return Item${overdue ? ' (Overdue)' : ''}</span>
+                       </button>`;
+
+                return `
+                    <article class="bg-white rounded-2xl border ${overdue ? 'border-rose-300 ring-1 ring-rose-200' : 'border-stone-200/80'} p-5 shadow-xs hover:shadow-md hover:border-stone-300/80 transition-all flex flex-col justify-between gap-4 animate-card">
+                        <div class="space-y-3">
+                            <!-- Top Meta Row: ID, Community & Mode -->
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 border border-stone-200/70">#${item.item_id}</span>
+                                    <button onclick="setCommunityFilter('${escapeJsString(item.community)}')" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border cursor-pointer hover:opacity-85 transition-opacity ${communityBadgeClass}" title="Filter by ${escapeHtml(item.community)}">
+                                        <i data-lucide="map-pin" class="w-3 h-3"></i>
+                                        ${escapeHtml(item.community)}
+                                    </button>
+                                </div>
+                                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full border ${modeBadgeClass}">
+                                    ${item.mode}
+                                </span>
+                            </div>
+
+                            <!-- Item Title, Category & Owner + Owner Phone -->
+                            <div>
+                                <h3 class="text-base sm:text-lg font-bold text-stone-900 leading-snug">${escapeHtml(item.title)}</h3>
+                                <div class="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs text-stone-500 mt-1.5">
+                                    <span class="inline-flex items-center gap-1">
+                                        <i data-lucide="${getCategoryIcon(item.category)}" class="w-3.5 h-3.5 text-stone-400"></i>
+                                        ${escapeHtml(item.category)}
+                                    </span>
+                                    <span class="text-stone-300">•</span>
+                                    <span class="inline-flex items-center gap-1">
+                                        <i data-lucide="user" class="w-3.5 h-3.5 text-stone-400"></i>
+                                        <strong class="font-semibold text-stone-700">${escapeHtml(item.owner)}</strong>
+                                    </span>
+                                    ${item.owner_phone ? `
+                                        <button onclick="copyPhoneToClipboard('${escapeJsString(item.owner_phone)}')" class="inline-flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded-md bg-stone-100 hover:bg-stone-200/80 text-stone-600 transition-colors cursor-pointer" title="Copy owner phone">
+                                            <i data-lucide="phone" class="w-3 h-3 text-stone-400"></i>
+                                            ${escapeHtml(item.owner_phone)}
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Pricing, Status, Active Due Strip & Action -->
+                        <div class="pt-3 border-t border-stone-100 space-y-2.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <div>${pricingText}</div>
+                                <div>${statusBlock}</div>
+                            </div>
+                            ${activeLoanDetails}
+                            <div>${actionButton}</div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Renders pandas-style table matching LendLocal.show_items_df()
+         */
+        function renderPandasTable(filtered) {
+            const tbody = document.getElementById('pandasTableBody');
+            tbody.innerHTML = filtered.map(item => {
+                const isRent = item.mode === 'Rent';
+                const overdue = !item.available && isOverdue(item.due_at);
+                const pricing = isRent ? `₹${item.rate_per_day}/day` : 'Free (Lend)';
+                const ownerContact = `${item.owner} (${item.owner_phone || '—'})`;
+                const statusHtml = item.available
+                    ? `<span class="text-emerald-700 font-semibold">Available</span>`
+                    : `<span class="${overdue ? 'text-rose-700 font-bold' : 'text-amber-800 font-medium'}">
+                           With ${escapeHtml(item.borrower)} (${escapeHtml(item.borrower_phone)}) | Due ${escapeHtml(item.due_at)} ${overdue ? '[OVERDUE]' : ''}
+                       </span>`;
+
+                const actionBtn = item.available
+                    ? `<button onclick="openRequestModal(${item.item_id})" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white ${isRent ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'} cursor-pointer">
+                           ${isRent ? 'Rent' : 'Borrow'}
+                       </button>`
+                    : `<button onclick="returnItem(${item.item_id})" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold ${overdue ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-900 hover:bg-amber-200'} cursor-pointer">
+                           Return
+                       </button>`;
+
+                return `
+                    <tr class="hover:bg-stone-50/90 transition-colors">
+                        <td class="py-2.5 px-3 font-mono font-bold text-stone-700">#${item.item_id}</td>
+                        <td class="py-2.5 px-3 whitespace-nowrap font-medium text-stone-800">${escapeHtml(item.community)}</td>
+                        <td class="py-2.5 px-3 font-semibold text-stone-900">${escapeHtml(item.title)}</td>
+                        <td class="py-2.5 px-3 text-stone-600">${escapeHtml(item.category)}</td>
+                        <td class="py-2.5 px-3">
+                            <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${isRent ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'}">${item.mode}</span>
+                        </td>
+                        <td class="py-2.5 px-3 font-mono text-stone-700 whitespace-nowrap">${pricing}</td>
+                        <td class="py-2.5 px-3 font-mono text-[11px] text-stone-600 whitespace-nowrap">${escapeHtml(ownerContact)}</td>
+                        <td class="py-2.5 px-3 text-xs">${statusHtml}</td>
+                        <td class="py-2.5 px-3 text-right whitespace-nowrap">${actionBtn}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Renders pivot table & average rental rates matching LendLocal.community_summary()
+         */
+        function renderCommunitySummary() {
+            const communities = getAllCommunities();
+            const pivotBody = document.getElementById('summaryPivotBody');
+            const avgGrid = document.getElementById('summaryAvgRatesGrid');
+
+            let totalLend = 0;
+            let totalRent = 0;
+            let totalAll = 0;
+            let totalAvail = 0;
+
+            const rowsHtml = communities.map(comm => {
+                const commItems = appState.items.filter(i => i.community.toLowerCase() === comm.toLowerCase());
+                const lendCount = commItems.filter(i => i.mode === 'Lend').length;
+                const rentCount = commItems.filter(i => i.mode === 'Rent').length;
+                const availCount = commItems.filter(i => i.available).length;
+
+                totalLend += lendCount;
+                totalRent += rentCount;
+                totalAll += commItems.length;
+                totalAvail += availCount;
+
+                return `
+                    <tr class="hover:bg-stone-50 transition-colors">
+                        <td class="py-3 px-5 font-semibold text-stone-900 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <button onclick="setCommunityFilter('${escapeJsString(comm)}'); setDisplayView('cards');" class="hover:underline text-left cursor-pointer">
+                                ${escapeHtml(comm)}
+                            </button>
+                        </td>
+                        <td class="py-3 px-4 text-right font-mono font-semibold text-emerald-700">${lendCount}</td>
+                        <td class="py-3 px-4 text-right font-mono font-semibold text-indigo-700">${rentCount}</td>
+                        <td class="py-3 px-4 text-right font-mono font-bold text-stone-900">${commItems.length}</td>
+                        <td class="py-3 px-5 text-right font-mono text-stone-600">${availCount} / ${commItems.length}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            pivotBody.innerHTML = rowsHtml + `
+                <tr class="bg-stone-100/80 font-bold text-stone-900 border-t-2 border-stone-200">
+                    <td class="py-3 px-5">All Communities Total</td>
+                    <td class="py-3 px-4 text-right font-mono text-emerald-800">${totalLend}</td>
+                    <td class="py-3 px-4 text-right font-mono text-indigo-800">${totalRent}</td>
+                    <td class="py-3 px-4 text-right font-mono">${totalAll}</td>
+                    <td class="py-3 px-5 text-right font-mono">${totalAvail} / ${totalAll}</td>
+                </tr>
+            `;
+
+            // Average daily rental rate by community (rent_only.groupby("community")["rate_per_day"].mean().round(1))
+            avgGrid.innerHTML = communities.map(comm => {
+                const rentItems = appState.items.filter(
+                    i => i.community.toLowerCase() === comm.toLowerCase() && i.mode === 'Rent'
+                );
+                const avg = rentItems.length > 0
+                    ? (rentItems.reduce((s, i) => s + i.rate_per_day, 0) / rentItems.length).toFixed(1)
+                    : '0.0';
+
+                return `
+                    <div class="p-4 rounded-xl bg-stone-50 border border-stone-200/70 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold text-stone-800">${escapeHtml(comm)}</p>
+                            <p class="text-[11px] text-stone-500 mt-0.5">${rentItems.length} rentable item${rentItems.length === 1 ? '' : 's'}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-mono font-extrabold text-indigo-700">₹${avg}</span>
+                            <span class="text-[11px] text-stone-500 block">avg / day</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderActivityLog() {
+            const container = document.getElementById('activityLogList');
+            if (!appState.history || appState.history.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 px-4 space-y-2">
+                        <i data-lucide="history" class="w-7 h-7 text-stone-300 mx-auto"></i>
+                        <p class="text-xs font-medium text-stone-500">No community activity logged yet.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            const reversed = [...appState.history].reverse();
+
+            container.innerHTML = reversed.map(entry => {
+                const match = entry.match(/^\[(.*?)\]\s+([A-Z]+):\s+(.*)$/);
+                if (!match) {
+                    return `<div class="p-3 rounded-xl bg-stone-50 border border-stone-200/70 text-xs font-mono text-stone-700">${escapeHtml(entry)}</div>`;
+                }
+
+                const [, timestamp, action, details] = match;
+
+                const badgeStyles = {
+                    LISTED: 'bg-stone-200/80 text-stone-800',
+                    RENTED: 'bg-indigo-100 text-indigo-800',
+                    BORROWED: 'bg-emerald-100 text-emerald-800',
+                    RETURNED: 'bg-amber-100 text-amber-800',
+                    REJECTED: 'bg-rose-100 text-rose-800'
+                };
+                const badgeClass = badgeStyles[action] || 'bg-stone-100 text-stone-700';
+
+                return `
+                    <div class="p-3 rounded-xl bg-stone-50/80 hover:bg-stone-100/70 border border-stone-200/60 transition-colors space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md tracking-wider ${badgeClass}">
+                                ${action}
+                            </span>
+                            <span class="text-[11px] font-mono text-stone-400">${escapeHtml(timestamp)}</span>
+                        </div>
+                        <p class="text-xs text-stone-700 leading-relaxed">${escapeHtml(details)}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /* =====================================================================
+           MODAL CONTROLLERS
+        ===================================================================== */
+
+        // 1. Add Item Modal
+        function openAddModal() {
+            document.getElementById('addItemForm').reset();
+            document.getElementById('itemCommunity').value =
+                uiFilters.community !== 'All' ? uiFilters.community : 'Kothrud West';
+            handleModeToggle('Rent');
+            const modal = document.getElementById('addItemModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => document.getElementById('itemTitle').focus(), 50);
+        }
+
+        function closeAddModal() {
+            const modal = document.getElementById('addItemModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function handleModeToggle(mode) {
+            const rateInput = document.getElementById('itemRate');
+            const helper = document.getElementById('rateHelperText');
+            if (mode === 'Lend') {
+                rateInput.value = 0;
+                rateInput.disabled = true;
+                helper.textContent = 'Lend mode is completely free (₹0/day) for neighbors.';
+            } else {
+                rateInput.disabled = false;
+                if (Number(rateInput.value) === 0) rateInput.value = 100;
+                helper.textContent = 'Neighbors will pay this daily rate upon renting.';
+            }
+        }
+
+        function handleAddItemSubmit(e) {
+            e.preventDefault();
+            const community = document.getElementById('itemCommunity').value;
+            const title = document.getElementById('itemTitle').value;
+            const category = document.getElementById('itemCategory').value;
+            const owner = document.getElementById('itemOwner').value;
+            const ownerPhone = document.getElementById('itemOwnerPhone').value;
+            const mode = document.querySelector('input[name="itemMode"]:checked').value;
+            const rate = document.getElementById('itemRate').value;
+
+            if (!title.trim() || !owner.trim() || !ownerPhone.trim() || !community.trim()) return;
+
+            addItem(title, category, community, owner, ownerPhone, mode, rate);
+            closeAddModal();
+        }
+
+        // 2. Request / Rent / Borrow Modal
+        let activeRequestItem = null;
+
+        function openRequestModal(itemId) {
+            const item = appState.items.find(i => i.item_id === itemId);
+            if (!item || !item.available) return;
+
+            activeRequestItem = item;
+            const isRent = item.mode === 'Rent';
+
+            document.getElementById('reqItemId').value = item.item_id;
+            document.getElementById('reqModalTitle').textContent = `#${item.item_id} ${item.title}`;
+            document.getElementById('reqModalCommunity').textContent = item.community;
+            document.getElementById('reqModalOwner').textContent = `${item.owner} (${item.owner_phone || 'N/A'})`;
+            document.getElementById('reqModalRate').textContent = isRent ? `₹${item.rate_per_day}/day` : 'Free (Lend)';
+
+            const badge = document.getElementById('reqModalBadge');
+            badge.textContent = isRent ? 'Rent Item' : 'Borrow Item';
+            badge.className = isRent
+                ? 'inline-block text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 bg-indigo-50 text-indigo-700'
+                : 'inline-block text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 bg-emerald-50 text-emerald-700';
+
+            const confirmBtn = document.getElementById('reqConfirmBtn');
+            confirmBtn.textContent = isRent ? 'Confirm Rental' : 'Confirm Borrow';
+            confirmBtn.className = isRent
+                ? 'px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-all cursor-pointer'
+                : 'px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-all cursor-pointer';
+
+            document.getElementById('borrowerName').value = '';
+            document.getElementById('borrowerPhone').value = '';
+            document.getElementById('borrowDays').value = 1;
+            updateCalculatedCost();
+
+            const modal = document.getElementById('requestItemModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => document.getElementById('borrowerName').focus(), 50);
+        }
+
+        function closeRequestModal() {
+            activeRequestItem = null;
+            const modal = document.getElementById('requestItemModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function updateCalculatedCost() {
+            if (!activeRequestItem) return;
+            const rawDays = parseInt(document.getElementById('borrowDays').value, 10) || 1;
+            const validationMsg = document.getElementById('durationValidationMsg');
+            const confirmBtn = document.getElementById('reqConfirmBtn');
+
+            if (rawDays < 1 || rawDays > MAX_RENTAL_DAYS) {
+                validationMsg.classList.remove('hidden');
+                confirmBtn.disabled = true;
+                confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                validationMsg.classList.add('hidden');
+                confirmBtn.disabled = false;
+                confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+
+            const clampedDays = Math.min(MAX_RENTAL_DAYS, Math.max(1, rawDays));
+            const rate = activeRequestItem.mode === 'Rent' ? activeRequestItem.rate_per_day : 0;
+            const total = rate * clampedDays;
+
+            const dueDt = new Date(Date.now() + clampedDays * 24 * 60 * 60 * 1000);
+            document.getElementById('reqDuePreview').textContent = formatDateTime(dueDt);
+
+            document.getElementById('reqCostBreakdown').textContent = activeRequestItem.mode === 'Rent'
+                ? `₹${rate}/day × ${clampedDays} day(s)`
+                : `Free community share × ${clampedDays} day(s)`;
+            document.getElementById('reqTotalCost').textContent = `₹${total.toLocaleString('en-IN')}`;
+        }
+
+        function handleRequestSubmit(e) {
+            e.preventDefault();
+            if (!activeRequestItem) return;
+
+            const borrower = document.getElementById('borrowerName').value;
+            const borrowerPhone = document.getElementById('borrowerPhone').value;
+            const days = parseInt(document.getElementById('borrowDays').value, 10) || 1;
+
+            if (!borrower.trim() || !borrowerPhone.trim()) return;
+            if (days < 1 || days > MAX_RENTAL_DAYS) {
+                showToast(`Duration cannot exceed ${MAX_RENTAL_DAYS} days.`, 'rose');
+                return;
+            }
+
+            requestItem(activeRequestItem.item_id, borrower, borrowerPhone, days);
+            closeRequestModal();
+        }
+
+        // 3. Community Region Modal
+        function openRegionModal() {
+            document.getElementById('regionInput').value = appState.community_region;
+            const modal = document.getElementById('regionModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => document.getElementById('regionInput').focus(), 50);
+        }
+
+        function closeRegionModal() {
+            const modal = document.getElementById('regionModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function handleRegionSubmit(e) {
+            e.preventDefault();
+            const newRegion = document.getElementById('regionInput').value.trim();
+            if (!newRegion) return;
+
+            appState.community_region = newRegion;
+            appState.items.forEach(item => item.community = newRegion);
+            saveState();
+            renderAll();
+            closeRegionModal();
+            showToast(`Switched neighborhood to ${newRegion}`, 'indigo');
+        }
+
+        // Close modals on Escape key or backdrop click
+        ['addItemModal', 'requestItemModal'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('click', () => {
+                    if (id === 'addItemModal') closeAddModal();
+                    if (id === 'requestItemModal') closeRequestModal();
+                });
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeAddModal();
+                closeRequestModal();
+            }
+        });
+
+        /* =====================================================================
+           TOAST NOTIFICATIONS & UTILITIES
+        ===================================================================== */
+
+        function showToast(message, tone = 'emerald') {
+            const container = document.getElementById('toastContainer');
+            const colors = {
+                emerald: 'bg-emerald-900 text-white border-emerald-700',
+                indigo: 'bg-indigo-900 text-white border-indigo-700',
+                amber: 'bg-amber-900 text-white border-amber-700',
+                rose: 'bg-rose-900 text-white border-rose-700',
+                stone: 'bg-stone-900 text-white border-stone-700'
+            };
+            const icons = {
+                emerald: 'check-circle-2',
+                indigo: 'sparkles',
+                amber: 'corner-down-left',
+                rose: 'alert-triangle',
+                stone: 'info'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium animate-toast ${colors[tone] || colors.stone}`;
+            toast.innerHTML = `
+                <i data-lucide="${icons[tone] || 'info'}" class="w-4 h-4 shrink-0"></i>
+                <span class="flex-1">${escapeHtml(message)}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(6px)';
+                toast.style.transition = 'all 0.2s ease';
+                setTimeout(() => toast.remove(), 220);
+            }, 3200);
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeJsString(str) {
+            return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        // Boot application on load
+        window.addEventListener('DOMContentLoaded', () => {
+            renderAll();
+        });
+    </script>
+</body>
+</html>
